@@ -1,0 +1,412 @@
+/* =========================================
+   CONFIGURACIÓN GENERAL
+========================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
+    background: #08080e;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+/* =========================================
+   ESCENARIO 3D
+========================================= */
+
+canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+}
+
+/* =========================================
+   PANTALLA DE SELECCIÓN
+========================================= */
+
+
+#characterScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 20px;
+
+    background:
+        linear-gradient(
+            rgba(5, 5, 10, 0.55),
+            rgba(5, 5, 10, 0.82)
+        ),
+        url("./assets/fondo-inicio.jpg");
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    transition: opacity 0.8s ease;
+}
+
+
+/* =========================================
+   IDENTIDAD DEL JUEGO
+========================================= */
+
+.game-brand {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+
+    margin-bottom: 16px;
+}
+
+.game-brand p {
+    color: #5348b9;
+    font-size: 9px;
+    letter-spacing: 3px;
+}
+
+.brand-line {
+    width: 35px;
+    height: 1px;
+    background: #435ba8;
+}
+
+h1 {
+    font-size: clamp(34px, 7vw, 57px);
+    font-weight: 900;
+    letter-spacing: 9px;
+
+    color: #ffffff;
+
+    text-shadow:
+        0 0 12px rgba(34, 36, 158, 0.7),
+        0 0 35px rgba(10, 12, 143, 0.5);
+}
+
+.welcome-text {
+    margin-top: 12px;
+
+    color: #aaa1b5;
+    font-size: 12px;
+    letter-spacing: 2px;
+}
+
+.selection-divider {
+    width: 75px;
+    height: 2px;
+
+    margin: 27px auto;
+
+    background: #4551f5;
+    box-shadow: 0 0 12px #263cb9;
+}
+
+h2 {
+    margin-bottom: 22px;
+
+    font-size: 13px;
+    letter-spacing: 4px;
+    font-weight: 700;
+
+    color: #d6c4e8;
+}
+
+
+/* =========================================
+   TARJETAS DE PERSONAJES
+========================================= */
+
+.character-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.character-option {
+    position: relative;
+
+    height: 300px;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+
+    overflow: hidden;
+
+    background: #17131f;
+
+    border: 1px solid #0f1020;
+    border-radius: 12px;
+
+    color: white;
+    cursor: pointer;
+
+    transition: 0.3s ease;
+}
+
+.character-option:hover {
+    transform: translateY(-5px);
+    border-color: #3e388a;
+}
+
+.character-option.selected {
+    border: 2px solid #4651eb;
+
+    box-shadow:
+        0 0 22px rgba(14, 8, 109, 0.35);
+}
+
+/* IMÁGENES */
+
+.character-preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    padding: 0;
+}
+
+.character-option:hover .character-preview {
+    transform: scale(1.06);
+}
+
+/* DEGRADADO INFERIOR */
+
+.character-option::after {
+    content: "";
+
+    position: absolute;
+    inset: 45% 0 0;
+
+    background: linear-gradient(
+        transparent,
+        rgba(8, 6, 13, 0.96)
+    );
+
+    pointer-events: none;
+}
+
+/* NOMBRES */
+
+.character-name {
+    position: relative;
+    z-index: 2;
+
+    margin-bottom: 15px;
+
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 4px;
+}
+
+/* SELECCIÓN */
+
+.selection-check {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+
+    z-index: 3;
+
+    display: none;
+
+    color: #dfbaff;
+    font-size: 19px;
+}
+
+.character-option.selected .selection-check {
+    display: block;
+}
+
+
+/* =========================================
+   FORMULARIO
+========================================= */
+
+#startForm {
+    margin-top: 27px;
+    text-align: left;
+}
+
+#startForm label {
+    display: block;
+    margin-bottom: 10px;
+
+    color: #c6b3d6;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+#playerName {
+    width: 100%;
+    height: 45px;
+
+    padding: 0 15px;
+
+    background: rgba(19, 16, 26, 0.95);
+
+    border: 1px solid #493a58;
+    border-radius: 7px;
+
+    outline: none;
+
+    color: white;
+    font-size: 13px;
+}
+
+#playerName:focus {
+    border-color: #7e7cdb;
+    box-shadow: 0 0 12px rgba(89, 87, 203, 0.2);
+}
+
+#playerName::placeholder {
+    color: #756c7d;
+}
+
+/* =========================================
+   BOTÓN COMENZAR
+========================================= */
+
+#startGame {
+    width: 100%;
+    height: 48px;
+
+    margin-top: 18px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+
+    background: linear-gradient(
+        110deg,
+        #4846b9,
+        #160a57
+    );
+
+    border: 1px solid #757bd1;
+    border-radius: 7px;
+
+    color: white;
+
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 3px;
+
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+
+#startGame:hover {
+    background: linear-gradient(
+        110deg,
+        #2d2ac2,
+        #191169
+    );
+
+    box-shadow: 0 0 22px rgba(51, 60, 189, 0.35);
+}
+
+#startGame span {
+    font-size: 20px;
+}
+
+/* =========================================
+   PIE DE PANTALLA DE INICIO
+========================================= */
+
+.screen-footer {
+    margin-top: 27px;
+
+    color: #776c83;
+
+    font-size: 9px;
+    letter-spacing: 3px;
+}
+
+/* =========================================
+   NOMBRE DEL JUGADOR
+========================================= */
+
+#playerTag {
+    position: fixed;
+    z-index: 5;
+
+    left: 20px;
+    bottom: 20px;
+
+    padding: 9px 15px;
+
+    color: #e6d7f5;
+    background: rgba(12, 10, 17, 0.75);
+
+    border: 1px solid rgba(24, 12, 194, 0.5);
+    border-radius: 6px;
+
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 600px) {
+
+    #characterScreen {
+        padding: 15px;
+    }
+
+    h1 {
+        letter-spacing: 5px;
+    }
+
+    .character-options {
+        gap: 10px;
+    }
+
+    .character-option {
+        min-height: 150px;
+        padding: 12px 7px;
+    }
+
+    .character-icon {
+        width: 55px;
+        height: 55px;
+        font-size: 31px;
+    }
+
+    .game-brand p {
+        font-size: 8px;
+        letter-spacing: 1.5px;
+    }
+
+    .screen-footer {
+        font-size: 8px;
+        letter-spacing: 2px;
+    }
+}

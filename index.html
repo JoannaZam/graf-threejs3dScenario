@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>THE LAST NIGHT | Juego 3D</title>
+
+    <link rel="stylesheet" href="./styles.css">
+
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+
+    <script type="importmap">
+    {
+            "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "@dimforge/rapier3d-compat": "./node_modules/@dimforge/rapier3d-compat/dist/rapier.mjs"
+
+        }
+         
+    }
+    </script>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE SELECCIÓN -->
+
+    <section id="characterScreen">
+
+        <div class="selection-container">
+
+            <div class="game-brand">
+                <span class="brand-line"></span>
+                <p>LA OSCURIDAD GUARDA SUS PROPIOS SECRETOS</p>
+                <span class="brand-line"></span>
+            </div>
+
+            <h1>THE LAST NIGHT</h1>
+
+
+            <div class="selection-divider"></div>
+
+            
+            <div class="character-options">
+
+                <button
+                    class="character-option selected"
+                    data-character="mujer"
+                    type="button">
+
+                    <img
+                        src="./assets/personaje-mujer.png"
+                        alt="Personaje mujer"
+                        class="character-preview"
+                    >
+
+                </button>
+
+                <button
+                    class="character-option"
+                    data-character="hombre"
+                    type="button">
+
+                    <img
+                        src="./assets/personaje-hombre.jpeg"
+                        alt="Personaje hombre"
+                        class="character-preview"
+                    >
+
+                </button>
+
+            </div>
+
+            <form id="startForm">
+
+                <label for="playerName">
+                    NOMBRE DEL JUGADOR
+                </label>
+
+                <input
+                    type="text"
+                    id="playerName"
+                    placeholder="Escribe tu nombre..."
+                    maxlength="18"
+                    autocomplete="off"
+                    required
+                >
+
+                <button id="startGame" type="submit">
+                    COMENZAR PARTIDA
+                </button>
+
+            </form>
+
+        </div>
+
+    </section>
+
+    <!-- INFORMACIÓN DEL JUGADOR -->
+
+    <div id="playerTag" hidden></div>
+
+    <!-- ESCENARIO 3D -->
+
+    <script type="module" src="./main.js"></script>
+
+</body>
+</html>
