@@ -14,6 +14,25 @@ function loadTexture(path) {
     });
 }
 
+const textureCache = new Map();
+
+function getCachedTexture(path) {
+
+    if (!textureCache.has(path)) {
+
+        const promise = loadTexture(path)
+            .then((texture) => {
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
+                return texture;
+            });
+
+        textureCache.set(path, promise);
+    }
+
+    return textureCache.get(path);
+}
+
 // ==========================================
 // CONFIGURACIÓN DE OBJETOS
 // ==========================================

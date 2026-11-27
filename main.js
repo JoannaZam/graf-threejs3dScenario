@@ -4,10 +4,140 @@ import { createAbandonedHouse } from './house.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { createObjects } from './objects.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { createTrees } from './trees.js';
 
 
 
+// ==========================================
+// MÚSICA AMBIENTAL
+// ==========================================
+
+const ambientMusic = new Audio('./audio/ambient.mp3');
+
+ambientMusic.loop = true;
+ambientMusic.volume = 0.25;
+ambientMusic.preload = 'auto';
+
+let musicStarted = false;
+
+function startAmbientMusic() {
+
+    if (musicStarted) return;
+
+    ambientMusic.play()
+        .then(() => {
+            musicStarted = true;
+            console.log('Música ambiental iniciada');
+            updateAudioControls();
+        })
+        .catch(error => {
+            console.warn('No se pudo iniciar la música:', error);
+        });
+}
+
+// ==========================================
+// CONTROL DE MÚSICA
+// ==========================================
+
+function toggleAmbientMusic() {
+
+    if (ambientMusic.paused) {
+
+        ambientMusic.play()
+            .then(() => {
+                musicStarted = true;
+                updateAudioControls();
+            })
+            .catch(error => {
+                console.error('Error al reproducir música:', error);
+            });
+
+    } else {
+
+        ambientMusic.pause();
+        updateAudioControls();
+
+    }
+
+}
+
+// Aumentar o disminuir volumen
+function changeMusicVolume(amount) {
+
+    ambientMusic.volume = THREE.MathUtils.clamp(
+        ambientMusic.volume + amount,
+        0,
+        1
+    );
+
+    updateAudioControls();
+}
+
+// ==========================================
+// CONECTAR CONTROLES DE MÚSICA
+// ==========================================
+
+const musicToggle = document.getElementById('musicToggle');
+const volumeDown = document.getElementById('volumeDown');
+const volumeUp = document.getElementById('volumeUp');
+const musicVolume = document.getElementById('musicVolume');
+
+// Botón reproducir / pausar
+musicToggle.addEventListener('click', toggleAmbientMusic);
+
+// Disminuir volumen 5%
+volumeDown.addEventListener('click', () => {
+    changeMusicVolume(-0.05);
+});
+
+// Aumentar volumen 5%
+volumeUp.addEventListener('click', () => {
+    changeMusicVolume(0.05);
+});
+
+// Actualizar interfaz
+function updateAudioControls() {
+
+    musicToggle.textContent = ambientMusic.paused
+        ? '▶ REPRODUCIR'
+        : 'Ⅱ PAUSAR';
+
+    musicVolume.textContent =
+        `${Math.round(ambientMusic.volume * 100)}%`;
+
+}
+
+// Mostrar valores iniciales
+updateAudioControls();
+
+// Iniciar música con la primera interacción,
+// excepto cuando se pulsa un control de música.
+window.addEventListener('pointerdown', (event) => {
+
+    if (event.target.closest('#musicControls')) return;
+
+    startAmbientMusic();
+
+}, { once: true });
+
+window.addEventListener('keydown', startAmbientMusic, { once: true });
+// Iniciar música después de la primera interacción
+window.addEventListener(
+    'keydown',
+    startAmbientMusic,
+    { once: true }
+);
+
+window.addEventListener(
+    'pointerdown',
+    startAmbientMusic,
+    { once: true }
+);
+
+
+console.time('TIEMPO RAPIER');
 await RAPIER.init();
+console.timeEnd('TIEMPO RAPIER');
 console.log('Rapier está funcionando correctamente:', RAPIER);
 
 // ==========================================
@@ -44,7 +174,9 @@ const renderer = new THREE.WebGLRenderer({
 });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 1.5)
+);
 
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -88,10 +220,14 @@ rgbeLoader.load(
 // CASA Y COLISIONES
 // ==========================================
 
+console.time('TIEMPO CASA');
 const abandonedHouse = createAbandonedHouse(scene);
+console.timeEnd('TIEMPO CASA');
 
-const houseColliders =
-    abandonedHouse.userData.colliders || [];
+// Obtener las colisiones de la casa
+const houseColliders = abandonedHouse.userData.colliders || [];
+
+console.log('Colisiones de la casa:', houseColliders.length);
 
     // ==========================================
     // MOTOR DE FÍSICA RAPIER
@@ -157,11 +293,22 @@ const houseColliders =
     // CARGAR OBJETOS 3D CON FÍSICA
     // ==========================================
 
-    const updatePhysicalObjects = await createObjects(
-        scene,
-        physicsWorld,
-        RAPIER
-    );
+    // Los objetos se cargarán en segundo plano.
+    // Así el resto del juego puede continuar sin esperarlos.
+
+    let updatePhysicalObjects = () => {};
+
+    updatePhysicalObjects.objects = [];
+
+    createObjects(scene, physicsWorld, RAPIER)
+        .then((updateFunction) => {
+            updatePhysicalObjects = updateFunction;
+
+            console.log('Todos los objetos están listos');
+        })
+        .catch((error) => {
+            console.error('Error al cargar los objetos:', error);
+        });
 
     // ==========================================
     // COLISIONES DE OBJETOS AL ARRASTRAR
@@ -566,10 +713,56 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 // ==========================================
+// ÁRBOLES DEL EXTERIOR
+// ==========================================
+
+const exteriorTrees = createTrees(scene);
+
+const treeColliders = exteriorTrees.userData.colliders || [];
+
+console.log('Colisiones de árboles:', treeColliders.length);
+
+// ==========================================
 // CARGADOR FBX Y SELECCIÓN DEL PERSONAJE
 // ==========================================
 
 const loader = new FBXLoader();
+const preloadedCharacters = {};
+const characterPreloadPromises = {};
+
+function preloadCharacter(name) {
+
+    if (preloadedCharacters[name]) {
+        return Promise.resolve(preloadedCharacters[name]);
+    }
+
+    if (!characterPreloadPromises[name]) {
+
+        characterPreloadPromises[name] = new Promise((resolve, reject) => {
+
+            loader.load(
+                `models/characters/${name}.fbx`,
+
+                (fbx) => {
+                    preloadedCharacters[name] = fbx;
+                    console.log(`Personaje ${name} precargado`);
+                    resolve(fbx);
+                },
+
+                undefined,
+
+                (error) => {
+                    delete characterPreloadPromises[name];
+                    reject(error);
+                }
+            );
+
+        });
+
+    }
+
+    return characterPreloadPromises[name];
+}
 
 let selectedCharacter = 'mujer';
 let playerName = 'Jugador';
@@ -584,6 +777,7 @@ document.querySelectorAll('.character-option').forEach((option) => {
     option.addEventListener('click', () => {
 
         selectedCharacter = option.dataset.character;
+        preloadCharacter(selectedCharacter);
 
         document.querySelectorAll('.character-option').forEach((item) => {
             item.classList.remove('selected');
@@ -595,12 +789,16 @@ document.querySelectorAll('.character-option').forEach((option) => {
 
 });
 
+preloadCharacter(selectedCharacter);
+
 // ==========================================
 // VARIABLES DEL JUGADOR
 // ==========================================
 
 let playerRoot = null;
 let character = null;
+let characterLoading = false;
+let characterLoaded = false;
 
 let mixer = null;
 
@@ -671,143 +869,112 @@ const cameraLookHeight = 1.05;
 // CÁMARA ACTUALIZADA
 // ==========================================
 
-function updateCamera() {
 
-    // Evitar errores antes de cargar el personaje
+function updateCamera() {
     if (!playerRoot || !character) return;
 
     const playerPosition = playerRoot.position.clone();
 
-    // Obtener la orientación real del pivote
     const playerQuaternion = new THREE.Quaternion();
-
     playerRoot.getWorldQuaternion(playerQuaternion);
-
-    // ======================================
-    // TERCERA PERSONA
-    // ======================================
 
     if (cameraMode === 'third') {
 
         character.visible = true;
 
-        // Punto al que mira la cámara
         const target = playerPosition.clone();
-
         target.y += cameraLookHeight;
 
-        // Probar distancias para evitar que
-        // la cámara quede dentro de una pared.
-        const distances = [
-            cameraDistance,
-            1.5,
-            1.2,
-            0.9,
-            0.6
-        ];
+        const offset = new THREE.Vector3(
+            0,
+            cameraHeight,
+            -cameraDistance
+        );
 
-        let finalPosition = null;
+        offset.applyQuaternion(playerQuaternion);
 
-        for (const distance of distances) {
+        const desiredPosition = playerPosition.clone().add(offset);
 
-            // IMPORTANTE:
-            // Crear un vector nuevo en cada actualización.
-            // Así no se acumula la rotación.
-            const offset = new THREE.Vector3(
-                0,
-                cameraHeight,
-                -distance
-            );
+        const direction = new THREE.Vector3()
+            .subVectors(desiredPosition, target)
+            .normalize();
 
-            // La cámara gira junto con el personaje.
-            offset.applyQuaternion(playerQuaternion);
+        const desiredDistance = target.distanceTo(desiredPosition);
 
-            const candidate = playerPosition.clone().add(offset);
+        const safeDistance = getCameraSafeDistance(
+            target,
+            direction,
+            desiredDistance
+        );
 
-            if (!isCameraBlocked(candidate)) {
-
-                finalPosition = candidate;
-                break;
-
-            }
-
-        }
-
-        // Si todas las posiciones están bloqueadas,
-        // colocar la cámara cerca del personaje.
-        if (!finalPosition) {
-
-            const offset = new THREE.Vector3(
-                0,
-                cameraHeight,
-                -0.4
-            );
-
-            offset.applyQuaternion(playerQuaternion);
-
-            finalPosition = playerPosition.clone().add(offset);
-
-        }
+        const finalPosition = target.clone().addScaledVector(
+            direction,
+            safeDistance
+        );
 
         camera.position.copy(finalPosition);
-
         camera.lookAt(target);
 
-    }
-
-    // ======================================
-    // PRIMERA PERSONA
-    // ======================================
-
-    else {
+    } else {
 
         character.visible = false;
 
         const eyePosition = playerPosition.clone();
-
         eyePosition.y += characterHeight * 0.88;
 
         const forward = new THREE.Vector3(0, 0, 1);
-
         forward.applyQuaternion(playerQuaternion);
 
         camera.position.copy(eyePosition);
-
         camera.lookAt(
             eyePosition.clone().addScaledVector(forward, 5)
         );
-
     }
-
 }
+
 
 // ==========================================
 // COLISIÓN DE CÁMARA
 // ==========================================
 
-function isCameraBlocked(position) {
 
-    const cameraPoint = position.clone();
+function getCameraSafeDistance(origin, direction, maxDistance) {
+
+    const ray = new THREE.Ray(origin, direction);
+
+    let safeDistance = maxDistance;
+
+    const cameraRadius = 0.18;
+    const wallMargin = 0.12;
 
     for (const collider of houseColliders) {
 
-        if (!collider.box) continue;
+        if (!collider.box || collider.box.isEmpty()) continue;
 
         const expandedBox = collider.box.clone();
 
-        expandedBox.expandByScalar(0.12);
+        expandedBox.expandByScalar(cameraRadius + wallMargin);
 
-        if (expandedBox.containsPoint(cameraPoint)) {
+        const intersection = ray.intersectBox(
+            expandedBox,
+            new THREE.Vector3()
+        );
 
-            return true;
+        if (!intersection) continue;
+
+        const distance = origin.distanceTo(intersection);
+
+        if (distance < safeDistance) {
+
+            safeDistance = Math.max(0.25, distance - 0.08);
 
         }
 
     }
 
-    return false;
-
+    return safeDistance;
 }
+
 
 // ==========================================
 // INICIAR JUEGO
@@ -837,6 +1004,7 @@ if (startForm) {
 
         }
 
+
         loadCharacter();
 
         if (characterScreen) {
@@ -855,24 +1023,33 @@ if (startForm) {
 
 }
 
+
 // ==========================================
 // CARGAR PERSONAJE
 // ==========================================
 
+
 function loadCharacter() {
+    
 
-    const characterPath =
-        `models/characters/${selectedCharacter}.fbx`;
+    if (characterLoading || characterLoaded) return;
 
-    showStatus('Cargando personaje...');
+    characterLoading = true;
 
-    loader.load(
+    showStatus('Preparando personaje...');
 
-        characterPath,
+    console.time('TIEMPO PERSONAJE FBX');
 
-        (fbx) => {
+    preloadCharacter(selectedCharacter)
+
+        .then((fbx) => {
 
             character = fbx;
+
+            console.timeEnd('TIEMPO PERSONAJE FBX');
+
+            characterLoaded = true;
+            characterLoading = false;
 
             character.scale.setScalar(1);
 
@@ -925,10 +1102,7 @@ function loadCharacter() {
 
             });
 
-            // ======================================
             // CENTRAR MODELO FBX
-            // ======================================
-
             const box = new THREE.Box3()
                 .setFromObject(character);
 
@@ -938,10 +1112,7 @@ function loadCharacter() {
             character.position.z -= center.z;
             character.position.y -= box.min.y;
 
-            // ======================================
             // CREAR PIVOTE
-            // ======================================
-
             playerRoot = new THREE.Group();
 
             playerRoot.name = 'PlayerRoot';
@@ -971,10 +1142,7 @@ function loadCharacter() {
             console.log('Altura:', characterHeight);
             console.log('Pivote:', playerRoot.position);
 
-            // ======================================
             // MEZCLADOR DE ANIMACIONES
-            // ======================================
-
             mixer = new THREE.AnimationMixer(character);
 
             mixer.addEventListener('finished', (event) => {
@@ -996,22 +1164,27 @@ function loadCharacter() {
 
             });
 
+            // ACTUALIZAR CÁMARA
+            updateCamera();
+            console.timeEnd('TIEMPO TOTAL INICIO');
+
+            showStatus('¡Partida iniciada!');
+
+            // CARGAR ANIMACIONES EN SEGUNDO PLANO
+           
+            console.log('PERSONAJE CARGADO, INICIANDO ANIMACIONES');
+            console.log('MIXER:', mixer);
+            console.log('ANIMATION NAMES:', animationNames);
+
             loadAnimations();
 
-            // ACTUALIZAR CÁMARA DESPUÉS DE CREAR
-            // EL PERSONAJE Y SU PIVOTE.
-            updateCamera();
+        })
 
-            showStatus('Personaje cargado correctamente');
+        .catch((error) => {
 
-        },
-
-        undefined,
-
-        (error) => {
+            characterLoading = false;
 
             console.error('Error al cargar personaje:', error);
-            console.error('Ruta:', characterPath);
 
             showStatus('Error al cargar el personaje');
 
@@ -1020,11 +1193,10 @@ function loadCharacter() {
                 'Revisa la ruta y el nombre del archivo FBX.'
             );
 
-        }
-
-    );
+        });
 
 }
+
 
 // ==========================================
 // CARGAR ANIMACIONES
@@ -1032,9 +1204,19 @@ function loadCharacter() {
 
 let loadedAnimations = 0;
 
+let animationsLoading = false;
+let animationsLoaded = false;
+
 function loadAnimations() {
 
+    console.log('ENTRÓ A loadAnimations()');
+    if (animationsLoading || animationsLoaded) return;
+
+    animationsLoading = true;
     loadedAnimations = 0;
+    
+
+    console.time('TIEMPO ANIMACIONES');
 
     animationNames.forEach((name) => {
 
@@ -1046,24 +1228,103 @@ function loadAnimations() {
 
                 if (!fbx.animations || fbx.animations.length === 0) {
 
-                    console.warn(`${name}.fbx no contiene animaciones`);
-                    return;
+                console.warn(`${name}.fbx no contiene animaciones`);
+
+                loadedAnimations++;
+
+                if (loadedAnimations === animationNames.length) {
+                    animationsLoading = false;
+                    animationsLoaded = true;
+                    console.timeEnd('TIEMPO ANIMACIONES');
+                    showStatus('Personaje y animaciones listos');
+                }
+
+                return;
+            }
+
+                const clip = fbx.animations[0];
+
+                // ==========================================
+                // CORREGIR DESPLAZAMIENTO DE LA CADERA
+                // ==========================================
+
+                if (['Walking', 'Running', 'Slow'].includes(name)) {
+
+                    const hipsTrack = clip.tracks.find(track =>
+                        track.name === 'mixamorigHips.position'
+                    );
+
+                    if (hipsTrack) {
+
+                        const values = hipsTrack.values;
+
+                        const initialX = values[0];
+                        const initialZ = values[2];
+
+                        for (let i = 0; i < values.length; i += 3) {
+
+                            values[i] = initialX;
+                            values[i + 2] = initialZ;
+
+                        }
+
+                        console.log(
+                            `Desplazamiento horizontal corregido: ${name}`
+                        );
+
+                    }
 
                 }
 
-                const clip = fbx.animations[0];
+                if (name === 'Walking') {
+
+                    console.log('===== REVISIÓN WALKING =====');
+
+                    console.log('Duración:', clip.duration);
+
+                    console.log('Cantidad de pistas:', clip.tracks.length);
+
+                    clip.tracks.forEach((track) => {
+
+                        console.log(
+                            'Pista:',
+                            track.name,
+                            '| Primer valor:',
+                            track.values.slice(0, 3),
+                            '| Último valor:',
+                            track.values.slice(-3)
+                        );
+
+                    });
+
+                }
 
                 const action = mixer.clipAction(clip);
 
                 if (name === 'Jump' || name === 'Hurt') {
 
                     action.setLoop(THREE.LoopOnce, 1);
+                if (
+                    name === 'Walking' ||
+                    name === 'Running' ||
+                    name === 'Slow'
+                ) {
+                    action.setLoop(THREE.LoopRepeat, Infinity);
+                    action.clampWhenFinished = false;
+                }
+
                     action.clampWhenFinished = true;
 
                 } else {
 
                     action.setLoop(THREE.LoopRepeat);
 
+                }
+
+                if (name === 'Walking' || name === 'Running' || name === 'Slow') {
+                    console.log(`Tracks de ${name}:`,
+                        clip.tracks.map(track => track.name)
+                    );
                 }
 
                 animations[name] = action;
@@ -1084,22 +1345,31 @@ function loadAnimations() {
 
                 if (loadedAnimations === animationNames.length) {
 
-                    showStatus('Personaje y animaciones listos');
+                animationsLoading = false;
+                animationsLoaded = true;
 
-                }
+                console.timeEnd('TIEMPO ANIMACIONES');
+
+                showStatus('Personaje y animaciones listos');
+
+            }
 
             },
 
             undefined,
 
             (error) => {
+                console.error(`Error cargando animación ${name}:`, error);
 
-                console.error(`Error al cargar ${name}:`, error);
+                loadedAnimations++;
 
-                showStatus(`No se pudo cargar ${name}`);
-
+                if (loadedAnimations === animationNames.length) {
+                    animationsLoading = false;
+                    animationsLoaded = true;
+                    console.timeEnd('TIEMPO ANIMACIONES');
+                    showStatus('Personaje y animaciones listos');
+                }
             }
-
         );
 
     });
@@ -1109,18 +1379,21 @@ function loadAnimations() {
 // ==========================================
 // REPRODUCIR ANIMACIONES CON TRANSICIONES
 // ==========================================
+    
 
 function playAnimation(name) {
 
     const nextAction = animations[name];
 
     if (!nextAction) {
-        console.warn(`Animación ${name} no disponible`);
         return;
     }
 
-    // Si ya está reproduciéndose, no reiniciarla
-    if (currentAnimation === name && nextAction.isRunning()) {
+    // Si ya está reproduciéndose, no reiniciarla.
+    if (
+        currentAnimation === name &&
+        nextAction.isRunning()
+    ) {
         return;
     }
 
@@ -1128,32 +1401,33 @@ function playAnimation(name) {
         ? animations[currentAnimation]
         : null;
 
-    // Preparar nueva animación
     nextAction.enabled = true;
-    nextAction.setEffectiveTimeScale(1);
     nextAction.setEffectiveWeight(1);
+    nextAction.setEffectiveTimeScale(1);
 
+    // Reiniciar solamente cuando entramos
+    // en una animación diferente.
     nextAction.reset();
+
     nextAction.play();
 
-    // Transición suave entre animaciones
     if (previousAction && previousAction !== nextAction) {
 
-        previousAction.crossFadeTo(
-            nextAction,
-            0.3,
+        nextAction.crossFadeFrom(
+            previousAction,
+            0.35,
             true
         );
 
     } else {
 
-        nextAction.fadeIn(0.3);
+        nextAction.fadeIn(0.35);
 
     }
 
     currentAnimation = name;
-
 }
+
 
 // ==========================================
 // ANIMACIONES AUTOMÁTICAS
@@ -1415,6 +1689,21 @@ function checkWallCollision(position, movementDirection = null) {
         if (!wall || wall.isEmpty()) continue;
 
         if (playerBox.intersectsBox(wall)) {
+            return true;
+        }
+
+    }
+
+
+    // ======================================
+    // ÁRBOLES DEL EXTERIOR
+    // ======================================
+
+    for (const treeBox of treeColliders) {
+
+        if (!treeBox || treeBox.isEmpty()) continue;
+
+        if (playerBox.intersectsBox(treeBox)) {
             return true;
         }
 
